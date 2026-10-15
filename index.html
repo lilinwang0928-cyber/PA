@@ -136,7 +136,20 @@ input[type=range]{accent-color:var(--brown)}
 .prog i{display:block;height:100%;width:0;background:var(--coral)}
 
 /* recorder */
-.stage{position:relative;border-radius:var(--r);overflow:hidden;background:#141210;aspect-ratio:16/9;max-width:100%;display:grid;place-items:center}
+.stage{--ar:1.7778;--maxh:62vh;position:relative;border-radius:var(--r);overflow:hidden;background:#141210;aspect-ratio:var(--ar);width:100%;max-width:min(100%,calc(var(--maxh) * var(--ar)));margin-inline:auto;display:grid;place-items:center}
+@media (orientation:portrait){.stage{--ar:0.75;--maxh:42vh}}
+@media (max-width:560px){section .prompt{padding:10px}section .prompt .say{font-size:16px}section .prompt .cells{grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:4px}section .prompt .cell{padding:3px 2px 5px;gap:3px}section .prompt .cell .blk{--bs:17px}}
+@media (orientation:landscape) and (max-height:560px){.stage{--maxh:72vh}}
+.guide{position:absolute;left:50%;top:9%;height:70%;aspect-ratio:3/4;max-width:86%;transform:translateX(-50%);border:3px dashed rgba(255,255,255,.8);border-radius:50% 50% 46% 46%;pointer-events:none;box-shadow:0 0 0 999px rgba(0,0,0,.18)}
+.guide::after{content:"";position:absolute;left:28%;right:28%;top:70%;border-top:2px dashed rgba(255,255,255,.7)}
+.guide span{position:absolute;left:50%;bottom:-2.1em;transform:translateX(-50%);white-space:nowrap;color:#fff;font-size:13px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.stopov{position:absolute;right:10px;bottom:10px;border:0;border-radius:999px;background:var(--rec);color:#fff;font-weight:800;padding:8px 18px;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.stage.pip .stopov{padding:4px 10px;font-size:12px;right:6px;bottom:6px}
+.stage.pip .live{font-size:12px;padding:2px 8px;top:6px;left:6px}
+.studio{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+@media (orientation:landscape) and (min-width:600px){.studio{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}}
+.stage.pip{position:fixed;z-index:60;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(36vw,280px);--maxh:40vh;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.stage.pip .guide span{display:none}
 .stage video{width:100%;height:100%;object-fit:cover;display:block}
 .stage video.mirror{transform:scaleX(-1)}
 .stage canvas{width:100%;height:100%;display:block}
@@ -347,7 +360,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-block:10px 30
         <label for="mBeat" style="font-size:14px;display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="mBeat"> 錄製時節拍提示（預留 3 秒說台詞）</label>
       </div>
     </div>
-    <div class="grid2" style="margin-top:14px;align-items:start">
+    <div class="studio" style="margin-top:14px">
       <div>
         <div class="stage" id="mStage">
           <video id="mPrev" class="mirror" playsinline muted hidden></video>
@@ -355,6 +368,8 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-block:10px 30
           <div class="msg" id="mMsg">按「開啟麥克風」或切換到錄影後「開啟鏡頭」</div>
           <div class="live" id="mLive" hidden><i></i><span id="mClock">0.0</span> 秒</div>
           <div class="cd" id="mCd" hidden></div>
+          <div class="guide" id="mGuide" hidden><span>臉和嘴巴放進框內</span></div>
+          <button class="stopov" id="mStopOv" hidden>■ 停止</button>
         </div>
         <div class="tbar"><i id="mBar"></i></div>
         <div class="tbar-l"><span>0</span><span>15</span><span>30 秒</span></div>
@@ -404,20 +419,26 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-block:10px 30
     <h3>3. 選題錄影</h3>
     <div class="qchips" id="chipsFormal"></div>
     <div style="margin-top:14px">
+      <div class="studio" id="fStudio"><div>
       <div class="stage" id="fStage">
         <video id="fPrev" class="mirror" playsinline muted hidden></video>
         <div class="msg" id="fMsg">按「開啟鏡頭」，確認畫面與嘴型清楚</div>
         <div class="live" id="fLive" hidden><i></i><span id="fClock">0.0</span> 秒</div>
         <div class="cd" id="fCd" hidden></div>
+          <div class="guide" id="fGuide" hidden><span>臉和嘴巴放進框內</span></div>
+          <button class="stopov" id="fStopOv" hidden>■ 停止</button>
       </div>
       <div class="tbar"><i id="fBar"></i></div>
       <div class="tbar-l"><span>0</span><span>15</span><span>30 秒（自動停止）</span></div>
-      <div class="prompt" id="fPrompt" style="margin-top:12px"></div>
+      </div>
+      <div class="prompt" id="fPrompt"></div>
+      </div>
       <div class="row" style="margin-top:12px">
         <button class="btn" id="fOpen">開啟鏡頭</button>
         <button class="btn rec" id="fStart" disabled>● 開始正式錄影</button>
         <button class="btn" id="fStop" disabled>■ 停止</button>
         <span class="hint" id="fWhy"></span>
+        <label for="gOn" style="font-size:14px;display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="gOn" checked> 顯示對位框</label>
       </div>
     </div>
   </div>
@@ -465,7 +486,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-block:10px 30
   </div>
   <div class="panel">
     <h3>錄影（限時 1 分 30 秒）</h3>
-    <div class="grid2" style="align-items:start">
+    <div class="studio">
       <div>
         <div class="stage" id="pStage">
           <video id="pPrev" class="mirror" playsinline muted hidden></video>
@@ -473,6 +494,8 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-block:10px 30
           <div class="msg" id="pMsg">按「開啟鏡頭」，確認看得到嘴型</div>
           <div class="live" id="pLive" hidden><i></i><span id="pClock">0.0</span> 秒</div>
           <div class="cd" id="pCd" hidden></div>
+          <div class="guide" id="pGuide" hidden><span>臉和嘴巴放進框內</span></div>
+          <button class="stopov" id="pStopOv" hidden>■ 停止</button>
         </div>
         <div class="tbar"><i id="pBar"></i></div>
         <div class="tbar-l"><span>0</span><span>45</span><span>90 秒（自動停止）</span></div>
@@ -660,7 +683,10 @@ async function openMedia(w){
     return false;
   }
   $(w+"Msg").hidden=true;
-  if(s.kind==="video"){const v=$(w+"Prev"); v.srcObject=s.stream; v.hidden=false; v.muted=true; v.play().catch(()=>{}); if($(w+"Meter")) $(w+"Meter").hidden=true;}
+  if(s.kind==="video"){const v=$(w+"Prev"); v.srcObject=s.stream; v.hidden=false; v.muted=true;
+    const fit=()=>{if(v.videoWidth&&v.videoHeight) $(w+"Stage").style.setProperty("--ar",(v.videoWidth/v.videoHeight).toFixed(4));};
+    v.onloadedmetadata=fit; v.onresize=fit; v.play().catch(()=>{}); if($(w+"Meter")) $(w+"Meter").hidden=true;
+    $(w+"Guide").hidden=!$("gOn").checked;}
   else {startMeter(w);}
   if($(w+"Open")) $(w+"Open").textContent=s.kind==="video"?"重新開啟鏡頭":"重新開啟麥克風";
   updateFormalGate();
@@ -674,6 +700,7 @@ function closeMedia(w){
   if(s.src){try{s.src.disconnect();}catch(e){} s.src=null;}
   const v=$(w+"Prev"); if(v){v.srcObject=null; v.hidden=true;}
   if($(w+"Meter")) $(w+"Meter").hidden=true;
+  if($(w+"Guide")) $(w+"Guide").hidden=true; if($(w+"Stage")) $(w+"Stage").style.removeProperty("--ar");
   const msg=$(w+"Msg"); if(msg){msg.hidden=false; msg.textContent=s.kind==="video"?"按「開始」會自動開啟鏡頭；也可以先按「開啟鏡頭」確認畫面":"按「開始」會自動開啟麥克風";}
   if($(w+"Open")) $(w+"Open").textContent=s.kind==="video"?"開啟鏡頭":"開啟麥克風";
 }
@@ -699,9 +726,17 @@ function countdown(w){
   return new Promise(res=>{const el=$(w+"Cd"); let n=3; el.hidden=false; el.textContent=n;
     const t=setInterval(()=>{n--; if(n<=0){clearInterval(t); el.hidden=true; res();} else {el.textContent=n;}},800);});
 }
+function focusStudio(w){
+  try{
+    const top=document.querySelector(".tabs").offsetHeight+8;
+    if(w==="p"){ if(M.p.kind==="video") $("pStage").classList.add("pip"); const el=$("pPrompt"); window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-top,behavior:"smooth"}); }
+    else { const el=$(w+"Stage"); window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-top,behavior:"smooth"}); }
+  }catch(e){}
+}
+document.addEventListener("click",e=>{const b=e.target.closest(".stopov"); if(b) stopRec(b.id[0]);});
 function resetRecUI(w){
   const s=M[w]; clearInterval(s.timer);
-  $(w+"Live").hidden=true; $(w+"Stop").disabled=true; $(w+"Start").disabled=false; if($(w+"Open")) $(w+"Open").disabled=false; busy=false; updateFormalGate();
+  $(w+"Live").hidden=true; $(w+"StopOv").hidden=true; $(w+"Stage").classList.remove("pip"); $(w+"Stop").disabled=true; $(w+"Start").disabled=false; if($(w+"Open")) $(w+"Open").disabled=false; busy=false; updateFormalGate();
 }
 async function startRec(w,onDone){
   const s=M[w]; if(busy) return;
@@ -709,6 +744,7 @@ async function startRec(w,onDone){
   busy=true; stopDrill(); $(w+"Start").disabled=true; if($(w+"Open")) $(w+"Open").disabled=true;
   try{
     if(!s.stream){const ok=await openMedia(w); if(!ok){resetRecUI(w);return;}}
+    focusStudio(w);
     await countdown(w);
     let rec=null, used="", lastErr=null;
     for(const t of mimeList(s.kind)){
@@ -731,7 +767,7 @@ async function startRec(w,onDone){
       onDone({blob,url:URL.createObjectURL(blob),mime:type,ext:extOf(type),dur,kind:s.kind,at:new Date()});
     };
     s.t0=performance.now();
-    $(w+"Live").hidden=false; $(w+"Stop").disabled=false;
+    $(w+"Live").hidden=false; $(w+"StopOv").hidden=false; $(w+"Stop").disabled=false;
     const bar=$(w+"Bar");
     s.timer=setInterval(()=>{const t=(performance.now()-s.t0)/1000; $(w+"Clock").textContent=t.toFixed(1); bar.style.width=Math.min(100,t/s.limit*100)+"%"; bar.classList.toggle("warn",t>s.limit-5); if(t>=s.limit){try{rec.stop();}catch(e){}}},100);
     if(w==="p"&&$("pRecBeat").checked){setTimeout(()=>{if(s.rec&&s.rec.state==="recording") paStart(false);},2500);}
@@ -907,6 +943,7 @@ function renderPTakes(){
 $("pTakes").addEventListener("click",e=>{const d=e.target.closest("[data-pdel]"); if(!d) return; const t=pTakes.splice(+d.dataset.pdel,1)[0]; try{URL.revokeObjectURL(t.url);}catch(err){} renderPTakes();});
 $("fName").addEventListener("input",()=>{$("pName").value=ST.name;});
 
+$("gOn").onchange=()=>{["m","f","p"].forEach(w=>{if(M[w].stream&&M[w].kind==="video") $(w+"Guide").hidden=!$("gOn").checked;});};
 /* ---------- boot ---------- */
 const start=(location.hash||"").replace("#","");
 renderAll(); updateFormalGate();
