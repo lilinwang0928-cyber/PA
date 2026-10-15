@@ -360,7 +360,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-block:10px 30
         <div class="tbar-l"><span>0</span><span>15</span><span>30 秒</span></div>
         <div class="row" style="margin-top:10px">
           <button class="btn" id="mOpen">開啟麥克風</button>
-          <button class="btn rec" id="mStart" disabled>● 開始模擬</button>
+          <button class="btn rec" id="mStart">● 開始模擬</button>
           <button class="btn" id="mStop" disabled>■ 停止</button>
         </div>
       </div>
@@ -484,7 +484,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-block:10px 30
         <label for="pRecBeat" style="font-size:14px;display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="pRecBeat"> 錄製時表格跟著節拍亮（預留 2.5 秒說台詞）</label>
         <div class="row">
           <button class="btn" id="pOpen">開啟鏡頭</button>
-          <button class="btn rec" id="pStart" disabled>● 開始錄製</button>
+          <button class="btn rec" id="pStart">● 開始錄製</button>
           <button class="btn" id="pStop" disabled>■ 停止</button>
         </div>
         <p class="hint">正式上傳的影片一定要錄影、一鏡到底；「只錄音」適合平常練習。</p>
@@ -638,30 +638,32 @@ const M={m:{stream:null,kind:"audio",rec:null,chunks:[],t0:0,timer:0,meterRaf:0,
 let busy=false;
 const takes={}; // q -> [{url,mime,dur,kind,ext,at}]
 let formalTake=null;
-function pickMime(kind){
-  if(!window.MediaRecorder) return "";
-  const list=kind==="video"?["video/mp4;codecs=avc1,mp4a","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"]:["audio/mp4","audio/webm;codecs=opus","audio/webm"];
-  for(const t of list){try{if(MediaRecorder.isTypeSupported(t)) return t;}catch(e){}}
-  return "";
+function mimeList(kind){
+  const list=kind==="video"?["video/mp4","video/webm;codecs=vp8,opus","video/webm","video/mp4;codecs=avc1,mp4a"]:["audio/mp4","audio/webm;codecs=opus","audio/webm","audio/ogg;codecs=opus"];
+  const ok=list.filter(t=>{try{return MediaRecorder.isTypeSupported(t);}catch(e){return false;}});
+  return ok.concat([""]);
 }
-const extOf=m=>/mp4/.test(m)?(m.startsWith("audio")?"m4a":"mp4"):"webm";
+const extOf=m=>/mp4|m4a|aac/.test(m)?(m.startsWith("audio")?"m4a":"mp4"):(/ogg/.test(m)?"ogg":"webm");
+function say(w,txt){const msg=$(w+"Msg"); if(!msg) return; msg.hidden=false; msg.textContent=txt;}
 async function openMedia(w){
   const s=M[w]; closeMedia(w);
-  const msg=$(w+"Msg");
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){msg.textContent="這個瀏覽器無法使用麥克風／鏡頭。請用 Chrome、Edge 或 Safari 開啟（網址需為 https）。";return false;}
+  if(!window.isSecureContext){say(w,"要用 https 網址開啟才能錄音錄影（例如 GitHub Pages 的網址）。直接開電腦裡的檔案，有些瀏覽器會擋。");return false;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){say(w,"這個瀏覽器不能使用麥克風／鏡頭。若是在 LINE、Facebook 裡開啟，請改用 Safari 或 Chrome 開啟這個網址。");return false;}
+  say(w,"正在開啟"+(s.kind==="video"?"鏡頭":"麥克風")+"，請在跳出的視窗按「允許」…");
   try{
-    const audio={echoCancellation:false,noiseSuppression:false,autoGainControl:true};
-    s.stream=await navigator.mediaDevices.getUserMedia(s.kind==="video"?{audio,video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}}}:{audio});
+    s.stream=await navigator.mediaDevices.getUserMedia(s.kind==="video"?{audio:true,video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}}}:{audio:true});
   }catch(e){
-    msg.hidden=false;
-    msg.textContent=(e&&e.name==="NotAllowedError")?"沒有取得權限。請在網址列左側允許使用麥克風／鏡頭，再按一次開啟。":"無法開啟裝置（"+(e&&e.name||"錯誤")+"）。確認沒有其他程式正在使用鏡頭或麥克風。";
+    const n=e&&e.name;
+    say(w,n==="NotAllowedError"?"沒有取得權限。請在網址列（或手機的設定）允許這個網站使用麥克風"+(s.kind==="video"?"與相機":"")+"，再按一次。":
+      n==="NotFoundError"?"找不到"+(s.kind==="video"?"鏡頭或麥克風":"麥克風")+"。請確認裝置已接上。":
+      "無法開啟裝置（"+(n||"錯誤")+"）。請關掉其他正在使用鏡頭或麥克風的程式後再試。");
     return false;
   }
-  msg.hidden=true;
-  if(s.kind==="video"){const v=$(w+"Prev"); v.srcObject=s.stream; v.hidden=false; v.play().catch(()=>{}); if($(w+"Meter")) $(w+"Meter").hidden=true;}
+  $(w+"Msg").hidden=true;
+  if(s.kind==="video"){const v=$(w+"Prev"); v.srcObject=s.stream; v.hidden=false; v.muted=true; v.play().catch(()=>{}); if($(w+"Meter")) $(w+"Meter").hidden=true;}
   else {startMeter(w);}
-  $(w+"Start").disabled=false; updateFormalGate();
-  $(w+"Open").textContent=s.kind==="video"?"重新開啟鏡頭":"重新開啟麥克風";
+  if($(w+"Open")) $(w+"Open").textContent=s.kind==="video"?"重新開啟鏡頭":"重新開啟麥克風";
+  updateFormalGate();
   return true;
 }
 function closeMedia(w){
@@ -669,16 +671,17 @@ function closeMedia(w){
   if(s.rec&&s.rec.state!=="inactive"){try{s.rec.stop();}catch(e){}}
   if(s.stream){s.stream.getTracks().forEach(t=>t.stop()); s.stream=null;}
   cancelAnimationFrame(s.meterRaf||0);
+  if(s.src){try{s.src.disconnect();}catch(e){} s.src=null;}
   const v=$(w+"Prev"); if(v){v.srcObject=null; v.hidden=true;}
   if($(w+"Meter")) $(w+"Meter").hidden=true;
-  const msg=$(w+"Msg"); if(msg) msg.hidden=false;
-  if($(w+"Start")) $(w+"Start").disabled=true;
-  if($(w+"Open")) $(w+"Open").textContent=M[w].kind==="video"?"開啟鏡頭":"開啟麥克風";
+  const msg=$(w+"Msg"); if(msg){msg.hidden=false; msg.textContent=s.kind==="video"?"按「開始」會自動開啟鏡頭；也可以先按「開啟鏡頭」確認畫面":"按「開始」會自動開啟麥克風";}
+  if($(w+"Open")) $(w+"Open").textContent=s.kind==="video"?"開啟鏡頭":"開啟麥克風";
 }
+let meterCtx=null;
 function startMeter(w){
-  const s=M[w], cv=$(w+"Meter"); cv.hidden=false;
-  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)(); actx.resume&&actx.resume();
-    const src=actx.createMediaStreamSource(s.stream); const an=actx.createAnalyser(); an.fftSize=1024; src.connect(an); s.an=an;}catch(e){return;}
+  const s=M[w], cv=$(w+"Meter"); if(!cv) return; cv.hidden=false;
+  try{meterCtx=meterCtx||new (window.AudioContext||window.webkitAudioContext)(); meterCtx.resume&&meterCtx.resume();
+    s.src=meterCtx.createMediaStreamSource(s.stream); const an=meterCtx.createAnalyser(); an.fftSize=1024; s.src.connect(an); s.an=an;}catch(e){return;}
   const g=cv.getContext("2d"), buf=new Uint8Array(s.an.fftSize);
   const css=getComputedStyle(document.documentElement);
   const draw=()=>{
@@ -693,32 +696,47 @@ function startMeter(w){
   draw();
 }
 function countdown(w){
-  return new Promise(res=>{const el=$(w+"Cd"); let n=3; el.hidden=false; el.textContent=n; tick(false);
-    const t=setInterval(()=>{n--; if(n<=0){clearInterval(t); el.hidden=true; tick(true); res();} else {el.textContent=n; tick(false);}},800);});
+  return new Promise(res=>{const el=$(w+"Cd"); let n=3; el.hidden=false; el.textContent=n;
+    const t=setInterval(()=>{n--; if(n<=0){clearInterval(t); el.hidden=true; res();} else {el.textContent=n;}},800);});
+}
+function resetRecUI(w){
+  const s=M[w]; clearInterval(s.timer);
+  $(w+"Live").hidden=true; $(w+"Stop").disabled=true; $(w+"Start").disabled=false; if($(w+"Open")) $(w+"Open").disabled=false; busy=false; updateFormalGate();
 }
 async function startRec(w,onDone){
-  const s=M[w]; if(!s.stream||busy) return;
-  const mime=pickMime(s.kind);
-  if(!window.MediaRecorder){$(w+"Msg").hidden=false; $(w+"Msg").textContent="這個瀏覽器不支援錄製，請改用最新版 Chrome 或 Safari。"; return;}
-  busy=true; stopDrill();
-  $(w+"Start").disabled=true; $(w+"Open").disabled=true;
-  await countdown(w);
-  try{s.rec=mime?new MediaRecorder(s.stream,{mimeType:mime}):new MediaRecorder(s.stream);}catch(e){s.rec=new MediaRecorder(s.stream);}
-  s.chunks=[]; s.rec.ondataavailable=e=>{if(e.data&&e.data.size) s.chunks.push(e.data);};
-  s.rec.onstop=()=>{
-    const dur=(performance.now()-s.t0)/1000;
-    clearInterval(s.timer); clearInterval(beatT); beatT=0; if($(w+"Prompt")) hl($(w+"Prompt"),-1); if(w==="p") paStop();
-    $(w+"Live").hidden=true; $(w+"Stop").disabled=true; $(w+"Start").disabled=!s.stream; $(w+"Open").disabled=false; busy=false;
-    const type=s.rec.mimeType||mime||(s.kind==="video"?"video/webm":"audio/webm");
-    const blob=new Blob(s.chunks,{type});
-    onDone({blob,url:URL.createObjectURL(blob),mime:type,ext:extOf(type),dur,kind:s.kind,at:new Date()});
-  };
-  s.rec.start(250); s.t0=performance.now();
-  $(w+"Live").hidden=false; $(w+"Stop").disabled=false;
-  const bar=$(w+"Bar");
-  s.timer=setInterval(()=>{const t=(performance.now()-s.t0)/1000; $(w+"Clock").textContent=t.toFixed(1); bar.style.width=Math.min(100,t/s.limit*100)+"%"; bar.classList.toggle("warn",t>s.limit-5); if(t>=s.limit){try{s.rec.stop();}catch(e){}}},100);
-  if(w==="p"&&$("pRecBeat").checked){setTimeout(()=>{if(s.rec&&s.rec.state==="recording") paStart(false);},2500);}
-  if(w==="m"&&$("mBeat").checked){setTimeout(()=>{if(s.rec&&s.rec.state==="recording") runBeat($("mPrompt"),+$("dTempo").value,false);},3000);}
+  const s=M[w]; if(busy) return;
+  if(!window.MediaRecorder){say(w,"這個瀏覽器不支援錄製。請用最新版 Chrome、Edge 或 Safari（iPhone 需 iOS 14.3 以上）開啟。");return;}
+  busy=true; stopDrill(); $(w+"Start").disabled=true; if($(w+"Open")) $(w+"Open").disabled=true;
+  try{
+    if(!s.stream){const ok=await openMedia(w); if(!ok){resetRecUI(w);return;}}
+    await countdown(w);
+    let rec=null, used="", lastErr=null;
+    for(const t of mimeList(s.kind)){
+      try{rec=t?new MediaRecorder(s.stream,{mimeType:t}):new MediaRecorder(s.stream); rec.start(); used=t; break;}
+      catch(e){lastErr=e; rec=null;}
+    }
+    if(!rec){say(w,"錄製無法開始（"+(lastErr&&lastErr.name||"錯誤")+"）。請改用最新版 Chrome 或 Safari 再試。");resetRecUI(w);return;}
+    s.rec=rec; s.chunks=[];
+    rec.ondataavailable=e=>{if(e.data&&e.data.size) s.chunks.push(e.data);};
+    rec.onerror=e=>{say(w,"錄製時發生錯誤（"+((e&&e.error&&e.error.name)||"錯誤")+"），請再試一次。");};
+    rec.onstop=()=>{
+      const dur=(performance.now()-s.t0)/1000;
+      clearInterval(beatT); beatT=0; if($(w+"Prompt")) hl($(w+"Prompt"),-1); if(w==="p") paStop();
+      const type=(rec.mimeType||used||(s.kind==="video"?"video/webm":"audio/webm")).split(";")[0];
+      const blob=new Blob(s.chunks,{type});
+      // release the mic/camera so the phone plays back through the speaker at normal volume
+      closeMedia(w); say(w,"錄好了，請到下方回放檢查。要再錄一次直接按「開始」。");
+      resetRecUI(w);
+      if(!blob.size){say(w,"這次沒有錄到內容，請再試一次；若一直如此，請換用 Chrome 或 Safari。");return;}
+      onDone({blob,url:URL.createObjectURL(blob),mime:type,ext:extOf(type),dur,kind:s.kind,at:new Date()});
+    };
+    s.t0=performance.now();
+    $(w+"Live").hidden=false; $(w+"Stop").disabled=false;
+    const bar=$(w+"Bar");
+    s.timer=setInterval(()=>{const t=(performance.now()-s.t0)/1000; $(w+"Clock").textContent=t.toFixed(1); bar.style.width=Math.min(100,t/s.limit*100)+"%"; bar.classList.toggle("warn",t>s.limit-5); if(t>=s.limit){try{rec.stop();}catch(e){}}},100);
+    if(w==="p"&&$("pRecBeat").checked){setTimeout(()=>{if(s.rec&&s.rec.state==="recording") paStart(false);},2500);}
+    if(w==="m"&&$("mBeat").checked){setTimeout(()=>{if(s.rec&&s.rec.state==="recording") runBeat($("mPrompt"),+$("dTempo").value,false);},3000);}
+  }catch(e){say(w,"錄製無法開始（"+(e&&e.name||"錯誤")+"）。請重新整理頁面再試。"); resetRecUI(w);}
 }
 function stopRec(w){const s=M[w]; if(s.rec&&s.rec.state==="recording"){try{s.rec.stop();}catch(e){}}}
 
@@ -738,7 +756,7 @@ function renderTakes(){
   const list=takes[mkey(ST.q)]||[]; const el=$("mTakes");
   if(!list.length){el.innerHTML='<p class="hint">第 '+(ST.q+1)+' 題還沒有錄製紀錄。錄完會出現在這裡，可回放、對照示範、下載。</p>';return;}
   el.innerHTML=list.map((t,k)=>'<div class="take"><div class="meta"><b>第 '+(list.length-k)+' 次</b><span>'+(t.kind==="video"?"錄影":"錄音")+'</span><span class="'+(t.dur>LIMIT-0.05?"over":"")+'">'+t.dur.toFixed(1)+' 秒'+(t.dur>LIMIT-0.05?'（到 30 秒被自動停止，正式時要在時限內唸完）':'')+'</span></div>'+
-    (t.kind==="video"?'<video controls playsinline src="'+t.url+'"></video>':'<audio controls src="'+t.url+'"></audio>')+
+    (t.kind==="video"?'<video controls playsinline preload="metadata" src="'+t.url+'"></video>':'<audio controls preload="auto" src="'+t.url+'"></audio>')+
     '<div class="row">'+(SETS[ST.set].audio?'<button class="btn blue" data-ab="'+k+'">▶ 先聽示範再聽我的</button>':'')+'<a class="btn" href="'+t.url+'" download="模擬_'+pad(ST.q+1)+'_'+(list.length-k)+'.'+t.ext+'">下載</a><button class="btn" data-del="'+k+'">刪除</button></div></div>').join("");
 }
 $("mTakes").addEventListener("click",e=>{
@@ -769,8 +787,8 @@ $("fLine").oninput=()=>{ST.line=$("fLine").value; save(); $("mPrompt").innerHTML
 ["c1","c2","c3","c4"].forEach(id=>$(id).onchange=updateFormalGate);
 function fileBase(q){return (ST.name||"姓名").replace(/[\\/:*?"<>|\s]+/g,"")+"_"+pad(q+1);}
 function updateFormalGate(){
-  const why=[]; if(!ST.name) why.push("填姓名"); if(!["c1","c2","c3","c4"].every(id=>$(id).checked)) why.push("勾完檢查清單"); if(!M.f.stream) why.push("開啟鏡頭");
-  $("fStart").disabled=busy||why.length>0; $("fWhy").textContent=why.length?"還需要："+why.join("、"):"準備好了，按下去會先倒數 3 秒";
+  const why=[]; if(!ST.name) why.push("填姓名"); if(!["c1","c2","c3","c4"].every(id=>$(id).checked)) why.push("勾完檢查清單"); 
+  $("fStart").disabled=busy||why.length>0; $("fWhy").textContent=why.length?"還需要："+why.join("、"):"準備好了，按下去會開啟鏡頭並倒數 3 秒";
 }
 $("fOpen").onclick=()=>openMedia("f");
 $("fStart").onclick=()=>{$("fReview").hidden=true; startRec("f",t=>{t.q=ST.q; formalTake=t; renderFormalTake(); updateFormalGate();});};
@@ -883,7 +901,7 @@ function renderPTakes(){
   if(!pTakes.length){el.innerHTML='<p class="hint">還沒有錄製紀錄。錄完可以回放、下載；檔名照規定是「姓名_140音」或「姓名_280音」。</p>';return;}
   el.innerHTML=pTakes.map((t,k)=>{const name=(ST.name||"姓名").replace(/[\\/:*?"<>|\s]+/g,"")+"_"+t.table+"音."+t.ext;
     return '<div class="take"><div class="meta"><b>'+t.table+' 音</b><span>'+(t.kind==="video"?"錄影":"錄音")+'</span><span class="'+(t.dur>89.95?"over":"")+'">'+t.dur.toFixed(1)+' 秒'+(t.dur>89.95?'（到 90 秒被自動停止）':'')+'</span><span>檔名 <span class="fname">'+escapeHTML(name)+'</span></span></div>'+
-    (t.kind==="video"?'<video controls playsinline src="'+t.url+'"></video>':'<audio controls src="'+t.url+'"></audio>')+
+    (t.kind==="video"?'<video controls playsinline preload="metadata" src="'+t.url+'"></video>':'<audio controls preload="auto" src="'+t.url+'"></audio>')+
     '<div class="row"><a class="btn pri" href="'+t.url+'" download="'+escapeHTML(name)+'">⬇ 下載</a><button class="btn" data-pdel="'+k+'">刪除</button></div></div>';}).join("");
 }
 $("pTakes").addEventListener("click",e=>{const d=e.target.closest("[data-pdel]"); if(!d) return; const t=pTakes.splice(+d.dataset.pdel,1)[0]; try{URL.revokeObjectURL(t.url);}catch(err){} renderPTakes();});
