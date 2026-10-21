@@ -9,3 +9,5 @@
 官方公告與報名：https://milinguall.com/news_2024.aspx?id=271
 
 錄音錄影需要以 https 開啟（GitHub Pages 即可），並允許瀏覽器使用鏡頭與麥克風。
+
+`mp/`：錄影「素色背板／背景模糊」使用的 MediaPipe Selfie Segmentation（Apache-2.0，Google），與網頁放在同一網址下載入。
