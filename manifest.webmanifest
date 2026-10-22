@@ -1,0 +1,31 @@
+{
+ "name": "PA 發音認證學習單",
+ "short_name": "PA 認證",
+ "description": "蕭博士 SoR 美語 PA 發音認證互動學習單",
+ "start_url": "./",
+ "scope": "./",
+ "display": "browser",
+ "background_color": "#f6f2ec",
+ "theme_color": "#6b5847",
+ "lang": "zh-Hant",
+ "icons": [
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ]
+}
