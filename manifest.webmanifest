@@ -1,7 +1,7 @@
 {
- "name": "PA 發音認證學習單",
- "short_name": "PA 認證",
- "description": "蕭博士 SoR 美語 PA 發音認證互動學習單",
+ "name": "拼讀發音認證學習單",
+ "short_name": "拼讀認證",
+ "description": "蕭博士 SoR 美語拼讀發音認證互動學習單",
  "start_url": "./",
  "scope": "./",
  "display": "browser",
